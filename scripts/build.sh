@@ -15,6 +15,10 @@ if [[ -z ${SONATYPE_HOST} ]] || [[ -z ${SONATYPE_USER} ]] || [[ -z ${SONATYPE_PA
     exit 1
 fi
 
+if [[ -z ${CREATE_TARBALL} ]]; then
+    CREATE_TARBALL=false
+fi
+
 # Set the sonatype credentials so that we can log into the sonatype Nexus repo to get dependencies
 sed -i 's/SONATYPE_HOST/'${SONATYPE_HOST}'/g' $HOME/.sbt/.credentials
 sed -i 's/SONATYPE_USER/'${SONATYPE_USER}'/g' $HOME/.sbt/.credentials
@@ -51,5 +55,15 @@ else
     sbt 'set test in assembly := {}' clean assembly
     mkdir -p ${OUTPUT_DIR}
     cp target/**/*.jar ${OUTPUT_DIR}/
+
+    if [[ $CREATE_TARBALL = true ]]; then
+        sbt clean
+        rm -rf target
+        rm -rf .git
+
+        cd ..
+        tar -czf "${PROJECT}.tar.gz" ${PROJECT}
+        cp "${PROJECT}.tar.gz" ${OUTPUT_DIR}/
+    fi
     
 fi
