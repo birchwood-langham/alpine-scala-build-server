@@ -49,7 +49,7 @@ else
 
     ## we compile and force recompile dependencies without C dependencies
     sbt 'set test in assembly := {}' clean assembly
-    mkdir ${OUTPUT_DIR}
+    mkdir -p ${OUTPUT_DIR}
     cp target/**/*.jar ${OUTPUT_DIR}/
     
 fi
