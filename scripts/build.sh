@@ -41,6 +41,7 @@ else
     if [[ -z ${BRANCH} ]]; then
         git clone ${PROJECT_URL}
     else
+        echo Checking out branch ${BRANCH}
         git clone --single-branch --branch ${BRANCH} ${PROJECT_URL}
     fi
 
