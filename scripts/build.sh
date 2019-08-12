@@ -5,13 +5,8 @@ if [[ ! -z ${BRANCH} ]] && [[ ! -z ${TAG} ]]; then
     exit 1
 fi
 
-if [ -z ${TOKEN} ]; then
-    echo "TOKEN has not been set, cannot continue"
-    exit 1
-fi
-
-if [[ -z ${SONATYPE_HOST} ]] || [[ -z ${SONATYPE_USER} ]] || [[ -z ${SONATYPE_PASS} ]]; then
-    echo 'SONATYPE_HOST, SONATYPE_USER and SONATYPE_PASS must be defined'
+if [[ -z ${PROJECT_PATH} ]] || [[ -z ${OUTPUT_DIR} ]]; then
+    echo 'PROJECT_PATH and OUTPUT_DIR must be defined'
     exit 1
 fi
 
@@ -20,51 +15,66 @@ if [[ -z ${CREATE_TARBALL} ]]; then
 fi
 
 # Set the sonatype credentials so that we can log into the sonatype Nexus repo to get dependencies
-sed -i 's/SONATYPE_HOST/'${SONATYPE_HOST}'/g' $HOME/.sbt/.credentials
-sed -i 's/SONATYPE_USER/'${SONATYPE_USER}'/g' $HOME/.sbt/.credentials
-sed -i 's/SONATYPE_PASS/'${SONATYPE_PASS}'/g' $HOME/.sbt/.credentials
+if [[ -z ${SONATYPE_HOST} ]]; then 
+    sed -i 's/SONATYPE_HOST/'${SONATYPE_HOST}'/g' $HOME/.sbt/.credentials
+fi
 
-if [[ -z ${PROJECT_PATH} ]] || [[ -z ${OUTPUT_DIR} ]]; then
-    echo 'PROJECT_PATH and OUTPUT_DIR must be defined'
-    exit 1
+if [[ -z ${SONATYPE_USER} ]]; then
+    sed -i 's/SONATYPE_USER/'${SONATYPE_USER}'/g' $HOME/.sbt/.credentials
+fi
+
+if [[ -z ${SONATYPE_PASS} ]]; then
+    sed -i 's/SONATYPE_PASS/'${SONATYPE_PASS}'/g' $HOME/.sbt/.credentials
+fi
+
+
+if [[ -z ${USE_GITLAB} ]]; then
+    if [[ -n ${TOKEN} ]]; then
+        echo 'Setting redirect for private GitHub repo'
+        git config --global url."https://$TOKEN@github.com".insteadOf "https://github.com"
+    fi
+    
+    PROJECT_URL=https://github.com/${PROJECT_PATH}
 else
+    if [[ -n ${TOKEN} ]]; then 
+        echo 'Setting redirect for private GitLab repo'
+        git config --global url."https://oauth2:$TOKEN@gitlab.com".insteadOf "https://gitlab.com"
+    fi
 
-    git config --global url."https://oauth2:$TOKEN@gitlab.com".insteadOf "https://gitlab.com"
-    
-    cd /build
-    
     PROJECT_URL=https://gitlab.com/${PROJECT_PATH}
-    PROJECT=`echo ${PROJECT_URL##*/} | cut -d '.' -f 1`
+fi
 
-    echo Cloning project from ${PROJECT_URL}
+cd /build
 
-    if [[ -z ${BRANCH} ]]; then
-        git clone ${PROJECT_URL}
-    else
-        echo Checking out branch ${BRANCH}
-        git clone --single-branch --branch ${BRANCH} ${PROJECT_URL}
-    fi
+PROJECT=`echo ${PROJECT_URL##*/} | cut -d '.' -f 1`
 
-    cd $PROJECT
+echo Cloning project from ${PROJECT_URL}
 
-    if [[ ! -z ${TAG} ]]; then 
-        echo Checking out tag: ${TAG}
-        git checkout tags/${TAG}
-    fi
+if [[ -z ${BRANCH} ]]; then
+    git clone ${PROJECT_URL}
+else
+    echo Checking out branch ${BRANCH}
+    git clone --single-branch --branch ${BRANCH} ${PROJECT_URL}
+fi
 
-    ## we compile and force recompile dependencies without C dependencies
-    sbt 'set test in assembly := {}' clean assembly
-    mkdir -p ${OUTPUT_DIR}
-    cp target/**/*.jar ${OUTPUT_DIR}/
+cd $PROJECT
 
-    if [[ $CREATE_TARBALL = true ]]; then
-        sbt clean
-        rm -rf target
-        rm -rf .git
+if [[ ! -z ${TAG} ]]; then 
+    echo Checking out tag: ${TAG}
+    git checkout tags/${TAG}
+fi
 
-        cd ..
-        tar -czf "${PROJECT}.tar.gz" ${PROJECT}
-        cp "${PROJECT}.tar.gz" ${OUTPUT_DIR}/
-    fi
-    
+## we compile and force recompile dependencies without C dependencies
+sbt 'set test in assembly := {}' clean assembly
+mkdir -p ${OUTPUT_DIR}
+cp target/**/*.jar ${OUTPUT_DIR}/
+
+if [[ $CREATE_TARBALL = true ]]; then
+    sbt clean
+    rm -rf target
+    rm -rf .git
+
+    cd ..
+    tar -czf "${PROJECT}.tar.gz" ${PROJECT}
+    cp "${PROJECT}.tar.gz" ${OUTPUT_DIR}/
 fi

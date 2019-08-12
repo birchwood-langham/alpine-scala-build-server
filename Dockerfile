@@ -13,8 +13,8 @@ RUN apk add --no-cache --virtual=build-dependencies wget ca-certificates && \
 RUN mkdir /build
 
 ADD install/credentials /root/.sbt/.credentials
-ADD scripts/build.sh /build.sh
+ADD scripts/* /
 
-RUN chmod +x /build.sh
+ENTRYPOINT [ "/entrypoint.sh" ]
 
 CMD ["/build.sh"]
